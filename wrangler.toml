@@ -1,0 +1,26 @@
+name = "genesys-mcp"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# Configuration comes from one of two places (env wins if both are set):
+#   1. The in-browser setup wizard at /setup - stores config in the KV
+#      namespace below. Easiest path; no terminal needed after deploy.
+#   2. Wrangler secrets (`npx wrangler secret put <NAME>`):
+#      GENESYS_CLIENT_ID / GENESYS_CLIENT_SECRET / GENESYS_REGION / MCP_AUTH_TOKEN
+#
+# KV namespace for wizard-managed config. The `id` is intentionally omitted so
+# the namespace is auto-provisioned into the deploying account: the "Deploy to
+# Cloudflare" button and `npx wrangler deploy` both create it and write the id
+# back to this file on first deploy. (If you'd rather pin an existing namespace,
+# run `npx wrangler kv namespace create CONFIG` and add `id = "..."` below.)
+[[kv_namespaces]]
+binding = "CONFIG"
+
+# Optional vars (override in [vars] or the dashboard):
+[vars]
+# Genesys Cloud region domain - the part after login./api. in your region's
+# hosts. Examples: mypurecloud.com (US East), usw2.pure.cloud (US West),
+# cac1.pure.cloud, mypurecloud.ie, euw2.pure.cloud, mypurecloud.de,
+# euc2.pure.cloud, aps1.pure.cloud, apne2.pure.cloud, mypurecloud.jp,
+# mypurecloud.com.au, sae1.pure.cloud, mec1.pure.cloud
+GENESYS_REGION = "mypurecloud.com"

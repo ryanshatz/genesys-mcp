@@ -1,0 +1,14 @@
+{
+  "name": "genesys-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Genesys Cloud on Cloudflare Workers - it builds, not just reads",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy",
+    "test": "node --test",
+    "smoke": "node scripts/live-smoke.mjs"
+  },
+  "license": "MIT"
+}
