@@ -90,8 +90,8 @@ export function landingPage(tools, cfg = { configured: true }) {
   <div class="hero">
     <h1>Your Genesys Cloud org,<br><span>in your AI's hands</span></h1>
     <p class="tag">An open-source MCP server that connects Claude, ChatGPT, or any MCP client to
-    Genesys Cloud - and unlike the analytics MCPs, this one <strong>builds</strong>: queues,
-    skills, users, and Architect flows.</p>
+    Genesys Cloud, built to <strong>build</strong>: queues, skills, users, and Architect flows,
+    diagrammed in chat before they deploy.</p>
     <div class="pills">
       <span class="pill">🛠️ ${tools.length} tools</span>
       <span class="pill">📦 zero dependencies</span>

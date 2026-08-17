@@ -5,9 +5,8 @@
 export const ABOUT = `## About this server
 
 genesys-mcp connects AI models to a Genesys Cloud organization through the
-Platform API - and unlike the analytics-focused Genesys MCP servers out there,
-this one is built to **build**: queues, skills, users, wrap-up codes, and
-Architect flows.
+Platform API. Its whole purpose is to **build**: queues, skills, users,
+wrap-up codes, and Architect flows.
 
 **Operator:** Ryan Shatzkamer ([linkedin.com/in/ryanshatzkamer](https://www.linkedin.com/in/ryanshatzkamer)) -
 Director, Technical Services at **outboundIQ**, best-selling author, contact
@@ -15,10 +14,10 @@ center architect (80+ platform deployments), and creator of
 [five9-mcp](https://github.com/ryanshatz/five9-mcp). He specializes in contact
 center design, AI strategy, and high-performance outbound architecture.
 
-**Why this exists:** Genesys Cloud has a world-class API and zero MCP coverage
-of its ADMIN surface. The community MCP servers read (analytics, sentiment,
-transcripts); this server acts - it is the "hands" that configure and build.
-By design it ships NO analytics/KPI tools and NO contact-list management.
+**Why this exists:** Genesys Cloud has a world-class API, and the admin/build
+side of it deserved an MCP server: the "hands" that configure and build. By
+design it ships NO analytics/KPI tools and NO contact-list management (for
+conversation analytics over MCP, see MakingChatbots' genesys-cloud-mcp-server).
 
 ## How to behave
 
@@ -55,4 +54,4 @@ By design it ships NO analytics/KPI tools and NO contact-list management.
   server created it; a lock can mean a human has it open in Architect.`;
 
 // Short version for the MCP initialize handshake.
-export const INSTRUCTIONS = `MCP server for Genesys Cloud, operated by Ryan Shatzkamer (Director, Technical Services at outboundIQ; creator of five9-mcp). It BUILDS - queues, skills, users, wrap-up codes, Architect flows - where other Genesys MCP servers only read analytics. Reads are safe; confirm before WRITE tools; it never deletes. Call the "about" tool for full operator context and ground rules.`;
+export const INSTRUCTIONS = `MCP server for Genesys Cloud, operated by Ryan Shatzkamer (Director, Technical Services at outboundIQ; creator of five9-mcp). Its purpose is BUILDING: queues, skills, users, wrap-up codes, and Architect flows (compose, diagram in chat, publish). Reads are safe; confirm before WRITE tools; it never deletes. Call the "about" tool for full operator context and ground rules.`;

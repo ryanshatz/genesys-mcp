@@ -1,8 +1,8 @@
 # genesys-mcp
 
-**Your Genesys Cloud org, in your AI's hands.** An open-source MCP server for Genesys Cloud on Cloudflare Workers. Zero dependencies, no terminal required, and unlike the analytics-focused Genesys MCP servers out there, this one **builds**.
+**Your Genesys Cloud org, in your AI's hands.** An open-source MCP server for Genesys Cloud on Cloudflare Workers. Zero dependencies, no terminal required, and its whole purpose is to **build**: queues, skills, users, wrap-up codes, and Architect flows.
 
-> The existing Genesys MCP servers read. This one builds.
+> It builds, not just reads.
 
 Prompt Claude (or any MCP client):
 
@@ -15,7 +15,7 @@ The flow builder composes real Archy YAML, shows you the flow as a Mermaid diagr
 
 ## What it deliberately does NOT do
 
-- **No analytics or KPI tools.** Other MCP servers cover that lane well.
+- **No analytics or KPI tools.** That lane is already covered; for conversation analytics over MCP, check out [MakingChatbots' genesys-cloud-mcp-server](https://github.com/MakingChatbots/genesys-cloud-mcp-server).
 - **No contact-list management.**
 - **No deletes.** There are no delete tools, and the raw API tool refuses `DELETE`. Create-first by design.
 
