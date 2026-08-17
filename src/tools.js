@@ -6,6 +6,7 @@
 
 import { GenesysClient, GenesysError, REGIONS } from './genesys.js';
 import { ABOUT } from './about.js';
+import { validateFlowSpec, specToArchyYaml, specToMermaid, configToMermaid, FLOW_ACTIONS } from './flows.js';
 
 // ---------- name → object resolution helpers ----------
 
@@ -316,6 +317,147 @@ export const TOOLS = [
     },
   },
 
+  // ----- flow building (Architect) -----
+  {
+    name: 'build_flow',
+    description: 'Compose an inbound call flow from a spec WITHOUT publishing: validates it, returns the Archy YAML and a Mermaid diagram to show the user. Spec: { name, greeting, menu: { prompt, choices: [{ dtmf: 0-9|*|#, action: transfer_to_queue|disconnect, queue?, name?, pre_transfer_message? }] }, description?, division?, language? }. Show the diagram, get ONE approval, then call publish_flow with the same spec.',
+    inputSchema: {
+      type: 'object',
+      properties: { spec: { type: 'object', description: 'The flow spec (see tool description)', additionalProperties: true } },
+      required: ['spec'],
+      additionalProperties: false,
+    },
+    genesys: false,
+    handler: (_gc, a) => {
+      const v = validateFlowSpec(a.spec);
+      if (!v.ok) return { valid: false, errors: v.errors };
+      return { valid: true, yaml: specToArchyYaml(a.spec), mermaid: specToMermaid(a.spec), note: 'Render the mermaid for the user and confirm before publish_flow.' };
+    },
+  },
+  {
+    name: 'publish_flow',
+    description: 'Create AND publish an Architect inbound call flow via the flow-jobs pipeline (validates server-side). Pass the spec from build_flow, or raw Archy YAML. CAUTION: if the flow name matches an existing flow of the same type, Genesys UPDATES that flow, so use a fresh name unless an update is explicitly intended. Waits up to ~20s; if the job is still running, poll with get_flow_job.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        spec: { type: 'object', description: 'Flow spec (as for build_flow)', additionalProperties: true },
+        yaml: { type: 'string', description: 'Raw Archy YAML (alternative to spec)' },
+      },
+      additionalProperties: false,
+    },
+    handler: async (gc, a) => {
+      let yaml = a.yaml;
+      if (!yaml) {
+        if (!a.spec) throw new GenesysError('Provide spec or yaml', 400);
+        const v = validateFlowSpec(a.spec);
+        if (!v.ok) throw new GenesysError(`Invalid spec: ${v.errors.join('; ')}`, 400);
+        yaml = specToArchyYaml(a.spec);
+      }
+      let job;
+      try { job = await gc.post('/api/v2/flows/jobs', {}); }
+      catch (e) { if (e.status === 400) job = await gc.api('POST', '/api/v2/flows/jobs', {}); else throw e; }
+      const put = await fetch(job.presignedUrl, { method: 'PUT', headers: job.headers || {}, body: yaml });
+      if (!put.ok) throw new GenesysError(`YAML upload to the job URL failed: HTTP ${put.status} ${(await put.text()).slice(0, 200)}`, put.status);
+      const jobId = job.id;
+      let state = { status: 'Started' };
+      for (let i = 0; i < 6 && !['Success', 'Failure'].includes(state.status); i++) {
+        await new Promise((r) => setTimeout(r, 3500));
+        state = await gc.get(`/api/v2/flows/jobs/${jobId}`, { expand: 'messages' });
+      }
+      return {
+        jobId,
+        status: state.status,
+        flow: state.flow ? { id: state.flow.id, name: state.flow.name } : undefined,
+        messages: state.messages?.length ? state.messages : undefined,
+        note: ['Success', 'Failure'].includes(state.status)
+          ? (state.status === 'Success' ? 'Flow created and published.' : 'Job failed; the messages above are the server-side validation report.')
+          : 'Job still running; call get_flow_job with this jobId.',
+      };
+    },
+  },
+  {
+    name: 'get_flow_job',
+    description: 'Check a flow publish job\'s status (from publish_flow). Terminal statuses are Success and Failure; Failure messages are the server-side validation report.',
+    inputSchema: {
+      type: 'object',
+      properties: { job_id: { type: 'string' } },
+      required: ['job_id'],
+      additionalProperties: false,
+    },
+    handler: async (gc, a) => {
+      const s = await gc.get(`/api/v2/flows/jobs/${a.job_id}`, { expand: 'messages' });
+      return { jobId: a.job_id, status: s.status, flow: s.flow ? { id: s.flow.id, name: s.flow.name } : undefined, messages: s.messages?.length ? s.messages : undefined };
+    },
+  },
+  {
+    name: 'export_flow',
+    description: 'Export an existing flow as Archy YAML (name or id). Runs an export job and returns the YAML text; useful for inspecting, backing up, or using a flow as a template.',
+    inputSchema: {
+      type: 'object',
+      properties: { flow: { type: 'string', description: 'Flow name or id' } },
+      required: ['flow'],
+      additionalProperties: false,
+    },
+    handler: async (gc, a) => {
+      const { id } = await resolveOne(gc, 'flow', '/api/v2/flows', a.flow);
+      const job = await gc.post('/api/v2/flows/export/jobs', { flows: [{ flow: { id }, exportType: 'Yaml' }] });
+      let state = job;
+      for (let i = 0; i < 6 && !['Success', 'Failure'].includes(state.status); i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        state = await gc.get(`/api/v2/flows/export/jobs/${job.id}`);
+      }
+      if (state.status !== 'Success') {
+        return { jobId: job.id, status: state.status, messages: state.messages, note: state.status === 'Failure' ? 'Export failed.' : 'Export still running; retry export_flow in a moment.' };
+      }
+      const dl = await fetch(state.downloadUrl);
+      if (!dl.ok) throw new GenesysError(`Export download failed: HTTP ${dl.status}`, dl.status);
+      const yaml = await dl.text();
+      return { flowId: id, yaml: yaml.length > 40000 ? yaml.slice(0, 40000) + '\n# …truncated' : yaml };
+    },
+  },
+  {
+    name: 'render_flow',
+    description: 'Render a flow as a Mermaid diagram to show the user: pass spec (pre-publish preview, exact) OR flow (an existing flow by name/id; best-effort from its configuration, menus render faithfully).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        spec: { type: 'object', description: 'Flow spec (as for build_flow)', additionalProperties: true },
+        flow: { type: 'string', description: 'Existing flow name or id' },
+      },
+      additionalProperties: false,
+    },
+    handler: async (gc, a) => {
+      if (a.spec) {
+        const v = validateFlowSpec(a.spec);
+        if (!v.ok) return { valid: false, errors: v.errors };
+        return { mermaid: specToMermaid(a.spec) };
+      }
+      if (!a.flow) throw new GenesysError('Provide spec or flow', 400);
+      const { id } = await resolveOne(gc, 'flow', '/api/v2/flows', a.flow);
+      const cfg = await gc.get(`/api/v2/flows/${id}/latestconfiguration`);
+      return { flowId: id, name: cfg.name, type: cfg.type, mermaid: configToMermaid(cfg), note: 'Best-effort render of an existing flow; menus are faithful, complex logic is summarized.' };
+    },
+  },
+  {
+    name: 'unlock_flow',
+    description: 'Unlock a flow that a failed job or an editor left checked out/locked (name or id). Only unlock flows this server created or is publishing to; a lock can mean a human is editing it.',
+    inputSchema: {
+      type: 'object',
+      properties: { flow: { type: 'string', description: 'Flow name or id' } },
+      required: ['flow'],
+      additionalProperties: false,
+    },
+    handler: async (gc, a) => {
+      const { id } = await resolveOne(gc, 'flow', '/api/v2/flows', a.flow);
+      try {
+        return await gc.api('POST', '/api/v2/flows/actions/unlock', { query: { flow: id } });
+      } catch (e) {
+        if (e.status === 400) return await gc.api('POST', '/api/v2/flows/actions/unlock', { query: { flowId: id } });
+        throw e;
+      }
+    },
+  },
+
   // ----- power tool -----
   {
     name: 'genesys_api_call',
@@ -357,14 +499,16 @@ export async function callTool(cfg, name, args = {}) {
 
 // UI metadata - which tools are writes, and how they group on the landing page.
 export const WRITE_TOOLS = new Set([
-  'create_queue', 'create_wrapup_code', 'create_skill', 'assign_user_skill', 'genesys_api_call',
+  'create_queue', 'create_wrapup_code', 'create_skill', 'assign_user_skill',
+  'publish_flow', 'unlock_flow', 'genesys_api_call',
 ]);
 
 export const TOOL_GROUPS = [
   { name: 'Org & Connection', icon: '🔌', tools: ['about', 'check_connection', 'list_divisions', 'list_did_pools'] },
   { name: 'Queues & Routing', icon: '📞', tools: ['list_queues', 'get_queue', 'create_queue', 'list_wrapup_codes', 'create_wrapup_code'] },
   { name: 'Users & Skills', icon: '👥', tools: ['list_users', 'get_user', 'list_skills', 'create_skill', 'assign_user_skill'] },
-  { name: 'Flows (Architect)', icon: '🌳', tools: ['list_flows', 'get_flow', 'get_flow_configuration', 'list_prompts'] },
+  { name: 'Flows (Architect)', icon: '🌳', tools: ['list_flows', 'get_flow', 'get_flow_configuration', 'list_prompts', 'render_flow', 'export_flow'] },
+  { name: 'Flow Builder', icon: '🏗️', tools: ['build_flow', 'publish_flow', 'get_flow_job', 'unlock_flow'] },
   { name: 'Power', icon: '⚡', tools: ['genesys_api_call'] },
 ];
 

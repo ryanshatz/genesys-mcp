@@ -36,7 +36,23 @@ By design it ships NO analytics/KPI tools and NO contact-list management.
   non-GET call is a write - describe the exact method, path, and body, and
   confirm with the user before sending. Prefer the typed tools when one exists.
 - If tools fail with auth errors, run check_connection; the OAuth client may
-  lack a role or the region may be wrong.`;
+  lack a role or the region may be wrong.
+
+## Building flows (the playbook)
+
+- The chain, in order: build_flow (compose + validate) -> show the user the
+  Mermaid diagram and get ONE approval -> publish_flow -> get_flow_job until
+  Success -> confirm with list_flows. Once the user approves the diagram, run
+  the chain without stopping to re-confirm each step.
+- Flow names are identity: publishing a name that matches an existing flow of
+  the same type UPDATES that flow. In this org, always use a NEW name.
+- Queues are referenced by NAME in the YAML and resolved at publish time, so
+  create the queue first (create_queue) if it does not exist yet.
+- TTS is inline (the tts: fields); no audio files or prompt uploads needed.
+- If a job fails, relay its messages verbatim; that is Genesys' own
+  validation report and it is usually specific and fixable.
+- If a publish fails because the flow is locked, unlock_flow it ONLY if this
+  server created it; a lock can mean a human has it open in Architect.`;
 
 // Short version for the MCP initialize handshake.
 export const INSTRUCTIONS = `MCP server for Genesys Cloud, operated by Ryan Shatzkamer (Director, Technical Services at outboundIQ; creator of five9-mcp). It BUILDS - queues, skills, users, wrap-up codes, Architect flows - where other Genesys MCP servers only read analytics. Reads are safe; confirm before WRITE tools; it never deletes. Call the "about" tool for full operator context and ground rules.`;
