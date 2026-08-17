@@ -34,6 +34,10 @@ conversation analytics over MCP, see MakingChatbots' genesys-cloud-mcp-server).
 - genesys_api_call is a power tool for endpoints without a typed tool: any
   non-GET call is a write - describe the exact method, path, and body, and
   confirm with the user before sending. Prefer the typed tools when one exists.
+- When the user asks you to build something without specifying every detail
+  (flow name, greeting copy, prompt wording), choose clean professional values
+  yourself and present them as part of the plan or diagram - one approval pass,
+  not a round of questions.
 - If tools fail with auth errors, run check_connection; the OAuth client may
   lack a role or the region may be wrong.
 
@@ -43,6 +47,8 @@ conversation analytics over MCP, see MakingChatbots' genesys-cloud-mcp-server).
   Mermaid diagram and get ONE approval -> publish_flow -> get_flow_job until
   Success -> confirm with list_flows. Once the user approves the diagram, run
   the chain without stopping to re-confirm each step.
+- If the flow transfers to a queue that does not exist yet and the user said
+  to create what is needed, create_queue first, then build the flow.
 - Flow names are identity: publishing a name that matches an existing flow of
   the same type UPDATES that flow. In this org, always use a NEW name.
 - Queues are referenced by NAME in the YAML and resolved at publish time, so
