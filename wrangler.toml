@@ -16,11 +16,9 @@ compatibility_date = "2026-08-01"
 [[kv_namespaces]]
 binding = "CONFIG"
 
-# Optional vars (override in [vars] or the dashboard):
-[vars]
-# Genesys Cloud region domain - the part after login./api. in your region's
-# hosts. Examples: mypurecloud.com (US East), usw2.pure.cloud (US West),
-# cac1.pure.cloud, mypurecloud.ie, euw2.pure.cloud, mypurecloud.de,
-# euc2.pure.cloud, aps1.pure.cloud, apne2.pure.cloud, mypurecloud.jp,
-# mypurecloud.com.au, sae1.pure.cloud, mec1.pure.cloud
-GENESYS_REGION = "mypurecloud.com"
+# Region: set GENESYS_REGION via the setup wizard, a Wrangler secret, or a
+# dashboard var. It is the domain suffix shared by login./api. in your
+# region's hosts: mypurecloud.com (US East, the default), usw2.pure.cloud
+# (US West), cac1.pure.cloud, mypurecloud.ie, euw2.pure.cloud,
+# mypurecloud.de, euc2.pure.cloud, aps1.pure.cloud, apne2.pure.cloud,
+# mypurecloud.jp, mypurecloud.com.au, sae1.pure.cloud, mec1.pure.cloud

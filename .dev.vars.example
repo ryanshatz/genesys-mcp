@@ -1,0 +1,7 @@
+# Copy to .dev.vars (gitignored) and fill in. These mirror the Wrangler secrets.
+GENESYS_CLIENT_ID=your-oauth-client-id
+GENESYS_CLIENT_SECRET=your-oauth-client-secret
+# Region domain: mypurecloud.com, usw2.pure.cloud, mypurecloud.ie, etc.
+GENESYS_REGION=mypurecloud.com
+# Access key MCP clients must present. Generate one: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+MCP_AUTH_TOKEN=
