@@ -149,6 +149,24 @@ test('v2 mermaid: hours diamond routes open to menu, closed to message', () => {
   assert.match(m, /☎️/);
 });
 
+test('play_message choice: menuTask with playAudio then previousMenu or disconnect', () => {
+  const spec = { ...goodSpec, menu: { prompt: 'p', choices: [
+    { dtmf: 3, action: 'play_message', message: 'We are at 123 Main Street.', name: 'Office Address' },
+    { dtmf: 4, action: 'play_message', message: 'Visit our website.', then: 'disconnect' },
+  ] } };
+  const yaml = specToArchyYaml(spec);
+  assert.match(yaml, /- menuTask:\n {14}name: 'Office Address'\n {14}dtmf: digit_3\n {14}task:\n {16}actions:\n {18}- playAudio:\n {22}name: Info Message\n {22}audio:\n {24}tts: 'We are at 123 Main Street\.'\n {18}- previousMenu:\n {22}name: Return to Menu/);
+  assert.match(yaml, /- playAudio:\n {22}name: Info Message\n {22}audio:\n {24}tts: 'Visit our website\.'\n {18}- disconnect:\n {22}name: Disconnect/);
+  const m = specToMermaid(spec);
+  assert.match(m, /🔈 We are at 123 Main Street\./);
+  assert.match(m, /c0 -\.-> menu/);
+  assert.ok(!m.includes('c1 -.-> menu'));
+  const v = validateFlowSpec({ ...goodSpec, menu: { prompt: 'p', choices: [{ dtmf: 1, action: 'play_message' }, { dtmf: 2, action: 'play_message', message: 'x', then: 'loop' }] } });
+  assert.equal(v.ok, false);
+  assert.match(v.errors.join(' | '), /play_message requires message/);
+  assert.match(v.errors.join(' | '), /then must be return_to_menu or disconnect/);
+});
+
 test('spec without hours keeps the v1 shape', () => {
   const yaml = specToArchyYaml(goodSpec);
   assert.match(yaml, /startUpRef: \.\/menus\/menu\[mainMenu\]/);

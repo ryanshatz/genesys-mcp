@@ -18,7 +18,7 @@ const DTMF = {
   '*': 'digit_star', '#': 'digit_pound',
 };
 
-export const FLOW_ACTIONS = ['transfer_to_queue', 'disconnect', 'voicemail', 'transfer_to_number'];
+export const FLOW_ACTIONS = ['transfer_to_queue', 'disconnect', 'voicemail', 'transfer_to_number', 'play_message'];
 
 // ---------- spec validation ----------
 
@@ -36,11 +36,13 @@ export const FLOW_ACTIONS = ['transfer_to_queue', 'disconnect', 'voicemail', 'tr
 //   },
 //   menu: {
 //     prompt: "TTS text",
-//     choices: [ { dtmf, action: 'transfer_to_queue'|'disconnect'|'voicemail'|'transfer_to_number',
-//                  name?, queue?, number?,
+//     choices: [ { dtmf, action: 'transfer_to_queue'|'disconnect'|'voicemail'|'transfer_to_number'|'play_message',
+//                  name?, queue?, number?, message?, then? ('return_to_menu'|'disconnect'),
 //                  pre_transfer_message?, failure_message?, voicemail_greeting? } ]
 //   }
 // }
+// play_message plays TTS info (an address, directions, a notice) and then
+// returns to the menu (default) or disconnects.
 // Voicemail targets a QUEUE (the message becomes a callback routed to that
 // queue; enable voicemail on the queue for live calls). User/group voicemail
 // targets are not supported yet: Genesys' validator rejects every documented
@@ -101,6 +103,12 @@ export function validateFlowSpec(spec) {
           const num = String(c.number || '').replace(/[\s().-]/g, '');
           if (!/^\+?\d{7,15}$/.test(num)) errors.push(`${where}: transfer_to_number requires an E.164-style number (e.g. +13175550123)`);
         }
+        if (c.action === 'play_message') {
+          if (!String(c.message || '').trim()) errors.push(`${where}: play_message requires message (TTS text)`);
+          if (c.then !== undefined && !['return_to_menu', 'disconnect'].includes(c.then)) {
+            errors.push(`${where}.then must be return_to_menu or disconnect (got "${c.then}")`);
+          }
+        }
       });
     }
   }
@@ -128,6 +136,7 @@ const choiceName = (c) => {
     case 'disconnect': return 'Disconnect';
     case 'voicemail': return 'Leave a Voicemail';
     case 'transfer_to_number': return `Call ${cleanNumber(c.number)}`;
+    case 'play_message': return 'Information';
     default: return `Transfer to ${c.queue}`;
   }
 };
@@ -242,6 +251,27 @@ export function specToArchyYaml(spec) {
       push(7, `dtmf: ${dtmf}`);
       continue;
     }
+    if (c.action === 'play_message') {
+      // An inline task choice: play the info message, then return to the
+      // menu (default) or disconnect.
+      push(5, '- menuTask:');
+      push(7, `name: ${yq(choiceName(c))}`);
+      push(7, `dtmf: ${dtmf}`);
+      push(7, 'task:');
+      push(8, 'actions:');
+      push(9, '- playAudio:');
+      push(11, 'name: Info Message');
+      push(11, 'audio:');
+      push(12, `tts: ${yq(c.message)}`);
+      if ((c.then || 'return_to_menu') === 'disconnect') {
+        push(9, '- disconnect:');
+        push(11, 'name: Disconnect');
+      } else {
+        push(9, '- previousMenu:');
+        push(11, 'name: Return to Menu');
+      }
+      continue;
+    }
     const kind = c.action === 'voicemail' ? 'menuTransferToVoicemail'
       : c.action === 'transfer_to_number' ? 'menuTransferToNumber'
       : 'menuTransferToAcd';
@@ -276,6 +306,7 @@ function choiceNode(id, c) {
   if (c.action === 'disconnect') return `  ${id}(("👋 ${mLabel(choiceName(c), 30)}"))`;
   if (c.action === 'voicemail') return `  ${id}[["📬 ${mLabel(choiceName(c), 40)}"]]`;
   if (c.action === 'transfer_to_number') return `  ${id}[["☎️ ${mLabel(choiceName(c), 40)}"]]`;
+  if (c.action === 'play_message') return `  ${id}["🔈 ${mLabel(c.message, 45)}"]`;
   return `  ${id}[["🎧 Queue: ${mLabel(c.queue, 40)}"]]`;
 }
 
@@ -306,6 +337,9 @@ export function specToMermaid(spec) {
     const id = `c${i}`;
     L.push(choiceNode(id, c));
     L.push(`  menu -->|${c.dtmf}| ${id}`);
+    if (c.action === 'play_message' && (c.then || 'return_to_menu') === 'return_to_menu') {
+      L.push(`  ${id} -.-> menu`);
+    }
   });
   return L.join('\n');
 }
