@@ -53,6 +53,12 @@ conversation analytics over MCP, see MakingChatbots' genesys-cloud-mcp-server).
   the same type UPDATES that flow. In this org, always use a NEW name.
 - Queues are referenced by NAME in the YAML and resolved at publish time, so
   create the queue first (create_queue) if it does not exist yet.
+- Business hours branching references a schedule GROUP by name: create the
+  weekly schedule (create_schedule), wrap it in a group with a time zone
+  (create_schedule_group), then set hours.schedule_group in the flow spec.
+- Voicemail targets a QUEUE: the message becomes a callback routed to that
+  queue (enable voicemail on the queue for live calls). User/group voicemail
+  targets are not supported yet.
 - TTS is inline (the tts: fields); no audio files or prompt uploads needed.
 - If a job fails, relay its messages verbatim; that is Genesys' own
   validation report and it is usually specific and fixable.

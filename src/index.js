@@ -8,7 +8,7 @@ import { INSTRUCTIONS } from './about.js';
 import { landingPage, setupPage } from './ui.js';
 import { loadConfig, saveConfig, randomToken } from './config.js';
 
-const SERVER_INFO = { name: 'genesys-mcp', version: '0.1.0' };
+const SERVER_INFO = { name: 'genesys-mcp', version: '0.2.0' };
 const PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
 const CORS_HEADERS = {

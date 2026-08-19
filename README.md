@@ -40,13 +40,14 @@ The MCP endpoint is `https://<your-worker>/mcp`.
 
 Then try: *"check the connection and list my queues."*
 
-## The toolbox (25 tools)
+## The toolbox (28 tools)
 
 | Group | Tools |
 |---|---|
 | 🔌 Org & Connection | `about`, `check_connection`, `list_divisions`, `list_did_pools` |
 | 📞 Queues & Routing | `list_queues`, `get_queue`, `create_queue` ✏️, `list_wrapup_codes`, `create_wrapup_code` ✏️ |
 | 👥 Users & Skills | `list_users`, `get_user`, `list_skills`, `create_skill` ✏️, `assign_user_skill` ✏️ |
+| 🕐 Schedules & Hours | `list_schedules`, `create_schedule` ✏️, `create_schedule_group` ✏️ |
 | 🌳 Flows (Architect) | `list_flows`, `get_flow`, `get_flow_configuration`, `list_prompts`, `render_flow`, `export_flow` |
 | 🏗️ Flow Builder | `build_flow`, `publish_flow` ✏️, `get_flow_job`, `unlock_flow` ✏️ |
 | ⚡ Power | `genesys_api_call` ✏️ (any Platform API endpoint; GET/POST/PUT/PATCH only) |
@@ -55,7 +56,7 @@ Then try: *"check the connection and list my queues."*
 
 ### How the flow builder works
 
-1. `build_flow` turns a spec (greeting + DTMF menu + queue transfers) into Archy YAML and a Mermaid diagram. Your AI shows you the diagram first.
+1. `build_flow` turns a spec into Archy YAML and a Mermaid diagram: a TTS greeting, an optional **business-hours gate** (open goes to the menu; closed and holiday play a message, then disconnect or take a voicemail), and a DTMF menu whose choices can **transfer to a queue, take a queue voicemail, dial an external number, or disconnect**. Your AI shows you the diagram first.
 2. `publish_flow` registers an Architect flow job, uploads the YAML, and polls. Genesys validates and publishes server-side; validation errors come back verbatim.
 3. `render_flow` also diagrams flows that already exist in your org, and `export_flow` round-trips any flow back to YAML.
 

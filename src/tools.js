@@ -331,11 +331,13 @@ export const TOOLS = [
       const t = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
       if (!t(a.start_time) || !t(a.end_time)) throw new GenesysError('start_time/end_time must be 24h HH:MM', 400);
       if (!a.days.length) throw new GenesysError('days must be non-empty', 400);
-      // Anchor the recurring series on a past Monday; the rrule carries the days.
+      // The series anchor date must fall on a day the rrule includes, so pick
+      // the first selected day within a known past week (2026-01-05 = Monday).
+      const anchor = { MO: '05', TU: '06', WE: '07', TH: '08', FR: '09', SA: '10', SU: '11' }[a.days[0]];
       const s = await gc.post('/api/v2/architect/schedules', {
         name: a.name,
-        start: `2026-01-05T${a.start_time}:00.000`,
-        end: `2026-01-05T${a.end_time}:00.000`,
+        start: `2026-01-${anchor}T${a.start_time}:00.000`,
+        end: `2026-01-${anchor}T${a.end_time}:00.000`,
         rrule: `FREQ=WEEKLY;INTERVAL=1;BYDAY=${a.days.join(',')}`,
       });
       return { created: true, id: s.id, name: s.name, rrule: s.rrule };
@@ -405,7 +407,7 @@ export const TOOLS = [
   // ----- flow building (Architect) -----
   {
     name: 'build_flow',
-    description: 'Compose an inbound call flow from a spec WITHOUT publishing: validates it, returns the Archy YAML and a Mermaid diagram to show the user. Spec: { name, greeting, menu: { prompt, choices: [{ dtmf: 0-9|*|#, action: transfer_to_queue|disconnect, queue?, name?, pre_transfer_message? }] }, description?, division?, language? }. Show the diagram, get ONE approval, then call publish_flow with the same spec.',
+    description: 'Compose an inbound call flow from a spec WITHOUT publishing: validates it, returns the Archy YAML and a Mermaid diagram to show the user. Spec: { name, greeting, hours?: { schedule_group (existing group name, see create_schedule_group), closed_message, holiday_message?, closed_action?: disconnect|voicemail, closed_voicemail_queue? }, menu: { prompt, choices: [{ dtmf: 0-9|*|#, action: transfer_to_queue|disconnect|voicemail|transfer_to_number, queue? (also the voicemail target: queue voicemail), number? (E.164), name?, pre_transfer_message?, failure_message?, voicemail_greeting? }] }, description?, division?, language? }. Referenced queues and schedule groups must exist before publish. Show the diagram, get ONE approval, then call publish_flow with the same spec.',
     inputSchema: {
       type: 'object',
       properties: { spec: { type: 'object', description: 'The flow spec (see tool description)', additionalProperties: true } },

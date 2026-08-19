@@ -1,6 +1,6 @@
 {
   "name": "genesys-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for Genesys Cloud on Cloudflare Workers - it builds, not just reads",
   "private": true,
   "type": "module",
