@@ -63,7 +63,23 @@ conversation analytics over MCP, see MakingChatbots' genesys-cloud-mcp-server).
 - If a job fails, relay its messages verbatim; that is Genesys' own
   validation report and it is usually specific and fixable.
 - If a publish fails because the flow is locked, unlock_flow it ONLY if this
-  server created it; a lock can mean a human has it open in Architect.`;
+  server created it; a lock can mean a human has it open in Architect.
+- **Approval means go**: when the user approves what you just showed ("love
+  it", "publish it", "ship it"), publish THAT immediately; do not re-ask or
+  re-open options. If you presented alternatives, the approval means the one
+  you recommended (or the most faithful one).
+
+## Porting flows from other platforms
+
+- Before declaring that something "does not survive the port", express it
+  with the FULL spec vocabulary: play_message (with then: disconnect for
+  play-then-hangup branches), hours.closed_action voicemail (closed message
+  THEN a voicemail drop), transfer_to_number, voicemail. Most classic IVR
+  branches map 1:1; only report a gap you actually failed to express.
+- Queue wait/timeout behavior (e.g. "after 180s in queue, go to voicemail")
+  lives in Genesys IN-QUEUE flows attached to the queue, not in the inbound
+  flow. When porting, mention it as a platform difference handled by the
+  queue's in-queue flow, not as a defect in the rebuilt flow.`;
 
 // Short version for the MCP initialize handshake.
 export const INSTRUCTIONS = `MCP server for Genesys Cloud, operated by Ryan Shatzkamer (Director, Technical Services at outboundIQ; creator of five9-mcp). Its purpose is BUILDING: queues, skills, users, wrap-up codes, and Architect flows (compose, diagram in chat, publish). Reads are safe; confirm before WRITE tools; it never deletes. Call the "about" tool for full operator context and ground rules.`;
