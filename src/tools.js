@@ -297,6 +297,91 @@ export const TOOLS = [
     },
   },
 
+  // ----- schedules & hours -----
+  {
+    name: 'list_schedules',
+    description: 'List Architect schedules and schedule groups (the org objects that power business-hours branching in flows).',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    handler: async (gc) => {
+      const [schedules, groups] = await Promise.all([
+        gc.listAll('/api/v2/architect/schedules'),
+        gc.listAll('/api/v2/architect/schedulegroups'),
+      ]);
+      return {
+        schedules: schedules.entities.map((s) => ({ id: s.id, name: s.name, start: s.start, end: s.end, rrule: s.rrule })),
+        scheduleGroups: groups.entities.map((g) => ({ id: g.id, name: g.name, timeZone: g.timeZone, open: g.openSchedules?.map((x) => x.name ?? x.id), closed: g.closedSchedules?.map((x) => x.name ?? x.id) })),
+      };
+    },
+  },
+  {
+    name: 'create_schedule',
+    description: 'Create a weekly recurring Architect schedule (e.g. business hours Mon-Fri 08:00-17:00). days uses two-letter codes: MO TU WE TH FR SA SU. Combine schedules into a group with create_schedule_group; flows branch on the GROUP.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        days: { type: 'array', items: { type: 'string', enum: ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] }, description: 'Days this schedule is active' },
+        start_time: { type: 'string', description: 'Daily start, 24h HH:MM (e.g. "08:00")' },
+        end_time: { type: 'string', description: 'Daily end, 24h HH:MM (e.g. "17:00")' },
+      },
+      required: ['name', 'days', 'start_time', 'end_time'],
+      additionalProperties: false,
+    },
+    handler: async (gc, a) => {
+      const t = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
+      if (!t(a.start_time) || !t(a.end_time)) throw new GenesysError('start_time/end_time must be 24h HH:MM', 400);
+      if (!a.days.length) throw new GenesysError('days must be non-empty', 400);
+      // Anchor the recurring series on a past Monday; the rrule carries the days.
+      const s = await gc.post('/api/v2/architect/schedules', {
+        name: a.name,
+        start: `2026-01-05T${a.start_time}:00.000`,
+        end: `2026-01-05T${a.end_time}:00.000`,
+        rrule: `FREQ=WEEKLY;INTERVAL=1;BYDAY=${a.days.join(',')}`,
+      });
+      return { created: true, id: s.id, name: s.name, rrule: s.rrule };
+    },
+  },
+  {
+    name: 'create_schedule_group',
+    description: 'Create an Architect schedule group (what flows actually branch on): a time zone plus open/closed/holiday schedules referenced by name or id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        time_zone: { type: 'string', description: 'IANA time zone, e.g. "America/New_York"' },
+        open_schedules: { type: 'array', items: { type: 'string' }, description: 'Schedule names or ids for open hours' },
+        closed_schedules: { type: 'array', items: { type: 'string' }, description: 'Optional: explicit closed schedules' },
+        holiday_schedules: { type: 'array', items: { type: 'string' }, description: 'Optional: holiday schedules' },
+      },
+      required: ['name', 'time_zone', 'open_schedules'],
+      additionalProperties: false,
+    },
+    handler: async (gc, a) => {
+      // The architect schedules endpoint does not filter by name reliably, so
+      // resolve client-side from the full list (with one retry for the brief
+      // consistency lag after a create).
+      const resolve = async (ref) => {
+        if (GUID_RE.test(ref)) return { id: ref };
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const { entities } = await gc.listAll('/api/v2/architect/schedules');
+          const m = entities.filter((s) => s.name?.toLowerCase() === ref.toLowerCase());
+          if (m.length === 1) return { id: m[0].id };
+          if (m.length > 1) throw new GenesysError(`Ambiguous schedule "${ref}" - use the id.`, 409);
+          await new Promise((r) => setTimeout(r, 2500));
+        }
+        throw new GenesysError(`No schedule found matching "${ref}"`, 404);
+      };
+      const g = await gc.post('/api/v2/architect/schedulegroups', {
+        name: a.name,
+        timeZone: a.time_zone,
+        openSchedules: await Promise.all(a.open_schedules.map(resolve)),
+        ...(a.closed_schedules?.length ? { closedSchedules: await Promise.all(a.closed_schedules.map(resolve)) } : {}),
+        ...(a.holiday_schedules?.length ? { holidaySchedules: await Promise.all(a.holiday_schedules.map(resolve)) } : {}),
+      });
+      return { created: true, id: g.id, name: g.name, timeZone: g.timeZone };
+    },
+  },
+
   // ----- org & telephony -----
   {
     name: 'list_divisions',
@@ -500,6 +585,7 @@ export async function callTool(cfg, name, args = {}) {
 // UI metadata - which tools are writes, and how they group on the landing page.
 export const WRITE_TOOLS = new Set([
   'create_queue', 'create_wrapup_code', 'create_skill', 'assign_user_skill',
+  'create_schedule', 'create_schedule_group',
   'publish_flow', 'unlock_flow', 'genesys_api_call',
 ]);
 
@@ -507,6 +593,7 @@ export const TOOL_GROUPS = [
   { name: 'Org & Connection', icon: '🔌', tools: ['about', 'check_connection', 'list_divisions', 'list_did_pools'] },
   { name: 'Queues & Routing', icon: '📞', tools: ['list_queues', 'get_queue', 'create_queue', 'list_wrapup_codes', 'create_wrapup_code'] },
   { name: 'Users & Skills', icon: '👥', tools: ['list_users', 'get_user', 'list_skills', 'create_skill', 'assign_user_skill'] },
+  { name: 'Schedules & Hours', icon: '🕐', tools: ['list_schedules', 'create_schedule', 'create_schedule_group'] },
   { name: 'Flows (Architect)', icon: '🌳', tools: ['list_flows', 'get_flow', 'get_flow_configuration', 'list_prompts', 'render_flow', 'export_flow'] },
   { name: 'Flow Builder', icon: '🏗️', tools: ['build_flow', 'publish_flow', 'get_flow_job', 'unlock_flow'] },
   { name: 'Power', icon: '⚡', tools: ['genesys_api_call'] },
