@@ -157,13 +157,12 @@ export function specToArchyYaml(spec) {
     push(base + 3, 'lit:');
     push(base + 4, `name: ${yq(queue)}`);
     // Queue voicemail becomes a callback interaction; default the callback
-    // number to the caller's ANI (Architect's own default).
+    // number to the caller's ANI (Architect's own default), and always set a
+    // greeting so publishes stay warning-free.
     push(base + 2, 'callbackNumber:');
     push(base + 3, 'exp: ToPhoneNumber(Call.Ani)');
-    if (greeting) {
-      push(base + 2, 'voicemailGreeting:');
-      push(base + 3, `exp: 'AudioPlaybackOptions(ToAudioTTS("${expText(greeting)}"), false)'`);
-    }
+    push(base + 2, 'voicemailGreeting:');
+    push(base + 3, `exp: 'AudioPlaybackOptions(ToAudioTTS("${expText(greeting || 'Please leave your name, number, and a short message after the tone.')}"), false)'`);
   };
 
   // Pre/failure transfer audio with friendly defaults: without them every
